@@ -1,0 +1,47 @@
+{
+  "name": "@pyroprompts/mcp-stdio-to-streamable-http-adapter",
+  "version": "0.1.0",
+  "description": "A Model Context Protocol Server that runs as stdio, wrapping a Streamable HTTP server, so any MCP-supporting client can use Streamable HTTP MCP Servers",
+  "type": "module",
+  "bin": {
+    "mcp-stdio-to-streamable-http-adapter": "./build/cli.js"
+  },
+  "files": [
+    "build"
+  ],
+  "scripts": {
+    "build": "tsc && node -e \"require('fs').chmodSync('build/index.js', '755'); require('fs').chmodSync('build/cli.js', '755')\"",
+    "prepare": "npm run build",
+    "watch": "tsc --watch",
+    "inspector": "npx @modelcontextprotocol/inspector build/index.js",
+    "clean": "rm -rf build",
+    "npm-publish": "npm run clean && npm run build && npm publish --access=public",
+    "start": "node build/cli.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.11.0",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.24",
+    "typescript": "^5.3.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pyroprompts/mcp-stdio-to-streamable-http-adapter.git"
+  },
+  "keywords": [
+    "claude",
+    "openai",
+    "mcp",
+    "model-context-protocol",
+    "ai",
+    "chat",
+    "llm"
+  ],
+  "author": "PyroPrompts",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  }
+}
