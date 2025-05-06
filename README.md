@@ -2,6 +2,8 @@
 
 Integrate any MCP Client that has STDIO MCP Server Support (most do) with the Streamable HTTP MCP Servers
 
+_Note_: This has similarities to the [mcp-remote package](https://www.npmjs.com/package/mcp-remote)
+
 ## Why?
 
 The [MCP Spec to add a Streamable HTTP Transport landed end of March 2025](https://modelcontextprotocol.io/specification/2025-03-26) and as of the end of April, no clients have adopted support. The typescript-sdk has merged the code, but not released. The Python SDK is still in development to support it. The Inspector supports it, but that's it.
