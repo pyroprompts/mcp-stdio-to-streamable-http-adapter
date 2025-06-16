@@ -10,6 +10,11 @@ import {
   ReadResourceRequestSchema,
   ListPromptsRequestSchema,
   GetPromptRequestSchema,
+  ToolListChangedNotificationSchema,
+  PromptListChangedNotificationSchema,
+  ResourceListChangedNotificationSchema,
+  ResourceUpdatedNotificationSchema,
+  LoggingMessageNotificationSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
 // Deps to run as a client
@@ -122,6 +127,46 @@ server.setRequestHandler(GetPromptRequestSchema, async (request) => {
     name: request.params.name,
   });
 });
+
+client.setNotificationHandler(
+  LoggingMessageNotificationSchema, 
+  async (notification) => {
+    server.notification(notification)
+    // server.sendLoggingMessage()
+  }
+)
+
+client.setNotificationHandler(
+  ResourceUpdatedNotificationSchema, 
+  async (notification) => {
+    server.notification(notification)
+    // server.sendResourceUpdated()
+  }
+)
+
+client.setNotificationHandler(
+  ResourceListChangedNotificationSchema, 
+  async (notification) => {
+    server.notification(notification)
+    // server.sendResourceListChanged()
+  }
+)
+
+client.setNotificationHandler(
+  ToolListChangedNotificationSchema, 
+  async (notification) => {
+    // server.notification(notification)
+    server.sendToolListChanged()
+  }
+)
+
+client.setNotificationHandler(
+  PromptListChangedNotificationSchema, 
+  async (notification) => {
+    // server.notification(notification)
+    server.sendPromptListChanged()
+  }
+)
 
 /**
  * Start the server using stdio transport.
