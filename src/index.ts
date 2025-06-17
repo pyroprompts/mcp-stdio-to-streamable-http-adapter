@@ -2,23 +2,12 @@
 
 import dotenv from "dotenv";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import {
-  CallToolRequestSchema,
-  ListResourcesRequestSchema,
-  ListToolsRequestSchema,
-  ReadResourceRequestSchema,
-  ListPromptsRequestSchema,
-  GetPromptRequestSchema,
-  ToolListChangedNotificationSchema,
-  PromptListChangedNotificationSchema,
-  ResourceListChangedNotificationSchema,
-  ResourceUpdatedNotificationSchema,
-  LoggingMessageNotificationSchema,
-} from "@modelcontextprotocol/sdk/types.js";
+import { JSONRPCMessage } from "@modelcontextprotocol/sdk/types.js";
+import { RequestOptions } from "@modelcontextprotocol/sdk/shared/protocol.js";
 
 // Deps to run as a client
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 
 
@@ -31,7 +20,7 @@ const NAME = process.env.MCP_NAME || 'mcp-stdio-to-streamable-http-adapter';
 if (!URI) {
   throw new Error("URI is required")
 }
-// console.log("starting...")
+// log("starting...")
 //
 let transportOptions = {};
 if (BEARER_TOKEN !== undefined) {
@@ -44,24 +33,7 @@ if (BEARER_TOKEN !== undefined) {
   }
 }
 
-const transport = new StreamableHTTPClientTransport(
-    new URL(`${URI}`),
-    transportOptions
-);
-// console.log("making client...")
-
-const client = new Client(
-  {
-    name: NAME,
-    version: "0.1.0"
-  }
-);
-
-// console.log("connecting to transport...")
-await client.connect(transport);
-
-
-const server = new Server(
+const mcp_sever = new McpServer(
   {
     name: NAME,
     version: "0.1.0",
@@ -70,111 +42,78 @@ const server = new Server(
     // TODO - check capabilities
     capabilities: {
       resources: {},
-      tools: {},
+      tools: {
+        listChanged: true
+      },
       prompts: {},
+      logging: {},
     },
   }
 );
 
-/**
- * Handler for listing resources.
- */
-server.setRequestHandler(ListResourcesRequestSchema, async () => {
-  return await client.listResources();
-});
+const server: Server = mcp_sever.server
 
-/**
- * Handler for reading the contents of a specific resource.
- */
-server.setRequestHandler(ReadResourceRequestSchema, async (request) => {
-  return await client.readResource({
-    uri: request.params.uri,
-  })
+function log(message: string | object){
+  server.sendLoggingMessage({ level: "info", content: JSON.stringify(message)});
+}
 
-});
-
-/**
- * Handler that lists available tools.
- * Exposes a single "chat" tool that lets clients chat with another AI.
- */
-server.setRequestHandler(ListToolsRequestSchema, async () => {
-  return await client.listTools();
-});
-
-/**
- * Handler for the chat tool.
- * Connects to an OpenAI SDK compatible AI Integration.
- */
-server.setRequestHandler(CallToolRequestSchema, async (request) => {
-  return await client.callTool({
-    name: request.params.name,
-    arguments: request.params.arguments || {},
-  });
-});
-
-/**
- * Handler that lists available prompts.
- */
-server.setRequestHandler(ListPromptsRequestSchema, async () => {
-  return await client.listPrompts();
-});
-
-/**
- * Handler for the get prompt.
- */
-server.setRequestHandler(GetPromptRequestSchema, async (request) => {
-  return await client.getPrompt({
-    name: request.params.name,
-  });
-});
-
-client.setNotificationHandler(
-  LoggingMessageNotificationSchema, 
-  async (notification) => {
-    server.notification(notification)
-    // server.sendLoggingMessage()
+class CustomClientStreamableHTTPClientTransport extends StreamableHTTPClientTransport {
+  // @ts-ignore
+  onmessage = (message: JSONRPCMessage, extra: RequestOptions) => {
+    // log("[client] onmessage fires")
+    // log(message)
+    server.transport?.send(message, extra)
   }
-)
-
-client.setNotificationHandler(
-  ResourceUpdatedNotificationSchema, 
-  async (notification) => {
-    server.notification(notification)
-    // server.sendResourceUpdated()
+  onerror = (error: Error) => {
+    // log("[client] onerror fires")
+    // log(error)
+    const error_func = server.transport?.onerror
+    if (error_func !== undefined){
+      error_func(error)
+    }
   }
-)
-
-client.setNotificationHandler(
-  ResourceListChangedNotificationSchema, 
-  async (notification) => {
-    server.notification(notification)
-    // server.sendResourceListChanged()
+  onclose = () => {
+    // log("[client] close trigger fires")
+    server.transport?.close()
   }
-)
+}
 
-client.setNotificationHandler(
-  ToolListChangedNotificationSchema, 
-  async (notification) => {
-    // server.notification(notification)
-    server.sendToolListChanged()
-  }
-)
+const client_transport = new CustomClientStreamableHTTPClientTransport(
+  new URL(`${URI}`),
+  transportOptions
+);
 
-client.setNotificationHandler(
-  PromptListChangedNotificationSchema, 
-  async (notification) => {
-    // server.notification(notification)
-    server.sendPromptListChanged()
-  }
-)
+class CustomServerStdioServerTransport extends StdioServerTransport {
+  // @ts-ignore
+  onmessage: ((message: JSONRPCMessage, extra: RequestOptions) => void) = (message: JSONRPCMessage, extra: RequestOptions) => {
+    // log("[server] onmessage fires")
+    // log(message)
+    client_transport.send(message, extra)
+  };
+  // onerror: ((error: Error) => void) = (error: Error) => {
+  //   // log("[server] onerror fires")
+  //   // log(error)
+  //   client_transport.onerror(error)
+  // };
+  // onclose: (() => void) = () => {
+  //   // log("[server] close trigger fires")
+  //   client_transport.onclose()
+  // }
+}
+
+await client_transport.start()
 
 /**
  * Start the server using stdio transport.
  * This allows the server to communicate via standard input/output streams.
  */
 async function main() {
-  const transport = new StdioServerTransport();
-  await server.connect(transport);
+  // const server_transport = new StdioServerTransport()
+  // await mcp_sever.connect(server_transport)
+  const server_transport = new CustomServerStdioServerTransport()
+  // @ts-ignore
+  server._transport = server_transport
+  await server_transport.start()
 }
 
 main().catch((error) => {
