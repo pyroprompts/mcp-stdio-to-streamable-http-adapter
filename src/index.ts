@@ -74,7 +74,8 @@ class CustomClientStreamableHTTPClientTransport extends StreamableHTTPClientTran
   }
   onclose = () => {
     // log("[client] close trigger fires")
-    server.transport?.close()
+    // server.transport?.close()
+    server.sendLoggingMessage({ level: "critical", data: "Client closed" })
   }
 }
 
