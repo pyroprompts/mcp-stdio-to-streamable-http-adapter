@@ -33,7 +33,7 @@ if (BEARER_TOKEN !== undefined) {
   transportOptions = {
     requestInit: {
       headers: {
-        "Authorization": `Bearer: ${BEARER_TOKEN}`
+        "Authorization": `Bearer ${BEARER_TOKEN}`
       }
     }
   }
